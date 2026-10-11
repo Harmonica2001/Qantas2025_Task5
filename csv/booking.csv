@@ -1,0 +1,8 @@
+Booking_id,Passenger_id,Booking_date,Payment_status
+B001,P001,2026-08-01,Paid
+B002,P002,2026-08-03,Paid
+B003,P003,2026-08-15,Pending
+B004,P004,2026-08-20,Paid
+B005,P001,2026-08-25,Paid
+B006,P005,2026-09-01,Refunded
+B007,P006,2026-09-02,Paid

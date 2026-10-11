@@ -1,0 +1,8 @@
+Route_id,Origin_airport_id,Destination_airport_id,Estimated_time_of_arrival
+RT001,SYD,MEL,85
+RT002,MEL,SYD,85
+RT003,SYD,BNE,90
+RT004,PER,SYD,240
+RT005,SYD,AKL,200
+RT006,SYD,SIN,480
+RT007,BNE,PER,320

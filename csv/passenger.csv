@@ -1,0 +1,7 @@
+Passenger_id,First_name,Last_name,Phone,Email
+P001,Olivia,Bennett,0420000001,olivia.bennett@example.com
+P002,Noah,Campbell,0420000002,noah.campbell@example.com
+P003,Ava,Nguyen,0420000003,ava.nguyen@example.com
+P004,Ethan,Wilson,0420000004,ethan.wilson@example.com
+P005,Mia,Patel,0420000005,mia.patel@example.com
+P006,Lucas,Fitzgerald,,lucas.fitzgerald@example.com

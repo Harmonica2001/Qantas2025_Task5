@@ -1,0 +1,9 @@
+Ticket_id,Booking_id,Flight_instance_id,Seat_number,Class_type,Ticket_fee
+T001,B001,FI001,12A,Economy,149
+T002,B002,FI001,12B,Economy,149
+T003,B003,FI002,4A,Business,459
+T004,B004,FI003,20C,Economy,129
+T005,B005,FI002,4B,Business,459
+T006,B006,FI005,2A,First,2199
+T007,B007,FI005,30F,Economy,899
+T008,B001,FI006,12A,Economy,149

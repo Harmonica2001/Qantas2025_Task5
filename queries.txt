@@ -1,0 +1,166 @@
+// ============================================================================
+// QANTAS FLIGHT SCHEDULING - Step 3: Graph database queries
+// Four use cases, from basic pattern matching to multi-stage analysis.
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// QUERY 1 (Basic: multi-hop pattern match + filter + sort)
+// "Sydney departures board"
+// Scenario: The Sydney operations desk needs every scheduled service out of
+// SYD with its destination city/country, flight number and planned times.
+// In SQL this needs a 4-table join (Flight_schedule, Route, Airport x2,
+// Airport_city); in Cypher it is a single readable path pattern.
+// ----------------------------------------------------------------------------
+MATCH (:Airport {Airport_id: 'SYD'})<-[:DEPARTS_FROM]-(r:Route)-[:ARRIVES_AT]->(dest:Airport)-[:LOCATED_IN]->(city:Airport_city),
+      (fs:Flight_schedule)-[:FOLLOWS]->(r)
+RETURN fs.Flight_number               AS flight,
+       dest.Airport_id                AS to_airport,
+       city.City                      AS destination,
+       city.Country                   AS country,
+       fs.Flight_type                 AS type,
+       fs.Scheduled_departure         AS departs,
+       fs.Scheduled_arrival           AS arrives,
+       r.Estimated_time_of_arrival    AS duration_min
+ORDER BY departs;
+
+// EXPECTED RESULT (4 rows)
+// flight | to_airport | destination | country     | type          | departs  | arrives  | duration_min
+// QF409  | MEL        | Melbourne   | Australia   | Domestic      | 06:30:00 | 07:55:00 | 85
+// QF521  | BNE        | Brisbane    | Australia   | Domestic      | 07:00:00 | 08:30:00 | 90
+// QF419  | MEL        | Melbourne   | Australia   | Domestic      | 18:00:00 | 19:25:00 | 85
+// QF001  | SIN        | Singapore   | Singapore   | International | 23:00:00 | 07:00:00 | 480
+// Insight: SYD->MEL is the only sector with two daily services; QF001 is the
+// only international departure (overnight, arrives next day).
+
+
+// ----------------------------------------------------------------------------
+// QUERY 2 (Intermediate: OPTIONAL MATCH + aggregation + calculated KPIs)
+// "Flight load factor and booked revenue"
+// Scenario: Revenue management wants, for every dated flight, the number of
+// seats sold, booked revenue and load factor (seats sold / aircraft
+// capacity). Refunded or failed bookings are excluded. OPTIONAL MATCH keeps
+// flights with no sales in the result (they show 0) instead of dropping them.
+// ----------------------------------------------------------------------------
+MATCH (fi:Flight_instance)-[:ACTUALISATION_OF]->(fs:Flight_schedule),
+      (fi)-[:USES]->(ac:Aircraft)
+OPTIONAL MATCH (b:Booking)-[:INCLUDES]->(t:Ticket)-[:ISSUED_FOR]->(fi)
+  WHERE b.Payment_status IN ['Paid', 'Pending']
+WITH fi, fs, ac,
+     count(t)       AS seats_sold,
+     sum(t.Ticket_fee) AS booked_revenue
+RETURN fi.Flight_instance_id                              AS flight_instance,
+       fs.Flight_number                                   AS flight,
+       fi.Flight_date                                     AS date,
+       fi.Flight_status                                   AS status,
+       ac.Aircraft_id + ' (' + ac.Aircraft_type + ')'     AS aircraft,
+       ac.Capacity                                        AS capacity,
+       seats_sold,
+       booked_revenue,
+       round(100.0 * seats_sold / ac.Capacity, 2)         AS load_factor_pct
+ORDER BY booked_revenue DESC, flight_instance;
+
+// EXPECTED RESULT (7 rows)
+// flight_instance | flight | date       | status    | aircraft                 | capacity | seats_sold | booked_revenue | load_factor_pct
+// FI002           | QF430  | 2026-09-10 | Landed    | AC001 (Boeing 737-800)   | 174      | 2          | 918            | 1.15
+// FI005           | QF001  | 2026-09-12 | Scheduled | AC002 (Airbus A330-200)  | 297      | 1          | 899            | 0.34
+// FI001           | QF409  | 2026-09-10 | Landed    | AC001 (Boeing 737-800)   | 174      | 2          | 298            | 1.15
+// FI006           | QF409  | 2026-09-12 | Cancelled | AC001 (Boeing 737-800)   | 174      | 1          | 149            | 0.57
+// FI003           | QF521  | 2026-09-11 | Delayed   | AC005 (Airbus A320)      | 180      | 1          | 129            | 0.56
+// FI004           | QF576  | 2026-09-11 | Scheduled | AC003 (Boeing 787-9)     | 236      | 0          | 0              | 0.0
+// FI007           | QF419  | 2026-09-12 | Scheduled | AC001 (Boeing 737-800)   | 174      | 0          | 0              | 0.0
+// Insight: FI005's refunded First-class ticket (T006, $2,199) is correctly
+// excluded. FI006 is cancelled but still holds $149 of paid revenue, which is
+// a refund/rebooking liability (see Query 4).
+
+
+// ----------------------------------------------------------------------------
+// QUERY 3 (Complex: traverses the specialisation hierarchy + CASE logic)
+// "Pilot fleet-certification compliance audit"
+// Scenario: Safety & compliance must confirm that every pilot rostered on a
+// flight is certified for that aircraft's fleet type (Narrowbody/Widebody).
+// The query walks Pilot <-IS_A- Employee -CREWS-> Flight_instance -USES->
+// Aircraft (five node types, two of them only linked through the IS_A
+// specialisation) and flags any mismatch.
+// ----------------------------------------------------------------------------
+MATCH (p:Pilot)<-[:IS_A]-(e:Employee)-[c:CREWS]->(fi:Flight_instance)-[:USES]->(ac:Aircraft),
+      (fi)-[:ACTUALISATION_OF]->(fs:Flight_schedule)
+WHERE c.Crew_role IN ['Captain', 'First Officer']
+RETURN e.First_name + ' ' + e.Last_name   AS pilot,
+       c.Crew_role                        AS role,
+       p.Fleet_type_certified             AS certified_for,
+       fs.Flight_number                   AS flight,
+       fi.Flight_date                     AS date,
+       fi.Flight_status                   AS status,
+       ac.Aircraft_id + ' ' + ac.Aircraft_type AS aircraft,
+       ac.Fleet_type                      AS aircraft_fleet,
+       CASE WHEN p.Fleet_type_certified = ac.Fleet_type
+            THEN 'COMPLIANT' ELSE 'NOT CERTIFIED' END AS compliance
+ORDER BY compliance DESC, date, flight;
+
+// EXPECTED RESULT (6 rows)
+// pilot           | role    | certified_for | flight | date       | status    | aircraft             | aircraft_fleet | compliance
+// James Whitfield | Captain | Widebody      | QF409  | 2026-09-10 | Landed    | AC001 Boeing 737-800 | Narrowbody     | NOT CERTIFIED
+// James Whitfield | Captain | Widebody      | QF430  | 2026-09-10 | Landed    | AC001 Boeing 737-800 | Narrowbody     | NOT CERTIFIED
+// James Whitfield | Captain | Widebody      | QF419  | 2026-09-12 | Scheduled | AC001 Boeing 737-800 | Narrowbody     | NOT CERTIFIED
+// Liam O'Connor   | Captain | Narrowbody    | QF521  | 2026-09-11 | Delayed   | AC005 Airbus A320    | Narrowbody     | COMPLIANT
+// Priya Nair      | Captain | Widebody      | QF576  | 2026-09-11 | Scheduled | AC003 Boeing 787-9   | Widebody       | COMPLIANT
+// Priya Nair      | Captain | Widebody      | QF001  | 2026-09-12 | Scheduled | AC002 Airbus A330-200| Widebody       | COMPLIANT
+// Insight: Captain Whitfield is rostered on a narrowbody 737 but is certified
+// for widebody aircraft only. QF419 on 2026-09-12 has not flown yet, so it
+// must be re-crewed (e.g. with Liam O'Connor, the only narrowbody-certified
+// pilot).
+
+
+// ----------------------------------------------------------------------------
+// QUERY 4 (Advanced: multi-stage pipeline, COUNT{} subquery, list
+// comprehension over collected maps, re-using bound nodes across patterns)
+// "Disruption recovery: who is affected and where can we rebook them?"
+// Scenario: When a flight is Cancelled or Delayed, the customer-care team
+// needs each affected passenger's contact details and a list of alternative
+// flights on the SAME origin->destination sector, on or after the original
+// date, that are still 'Scheduled' and have free seats. Free seats are
+// calculated live: aircraft capacity minus tickets already issued.
+// ----------------------------------------------------------------------------
+MATCH (pax:Passenger)-[:MADE]->(b:Booking)-[:INCLUDES]->(t:Ticket)-[:ISSUED_FOR]->(fi:Flight_instance),
+      (fi)-[:ACTUALISATION_OF]->(fs:Flight_schedule)-[:FOLLOWS]->(r:Route),
+      (r)-[:DEPARTS_FROM]->(orig:Airport),
+      (r)-[:ARRIVES_AT]->(dest:Airport)
+WHERE fi.Flight_status IN ['Cancelled', 'Delayed']
+  AND b.Payment_status <> 'Refunded'
+// Stage 2: look for alternative services on the same sector
+OPTIONAL MATCH (alt:Flight_instance {Flight_status: 'Scheduled'})-[:ACTUALISATION_OF]->(altFs:Flight_schedule),
+               (altFs)-[:FOLLOWS]->(altR:Route),
+               (altR)-[:DEPARTS_FROM]->(orig),
+               (altR)-[:ARRIVES_AT]->(dest),
+               (alt)-[:USES]->(altAc:Aircraft)
+  WHERE alt <> fi AND alt.Flight_date >= fi.Flight_date
+WITH pax, t, fi, fs, orig, dest, alt, altFs,
+     altAc.Capacity - COUNT { (alt)<-[:ISSUED_FOR]-(:Ticket) } AS seats_free
+// Stage 3: one row per affected ticket, alternatives collected into a list
+WITH pax, t, fi, fs, orig, dest,
+     collect(CASE WHEN alt IS NOT NULL AND seats_free > 0
+                  THEN {flight: altFs.Flight_number, date: alt.Flight_date,
+                        departs: altFs.Scheduled_departure, seats_free: seats_free}
+             END) AS options
+RETURN pax.First_name + ' ' + pax.Last_name          AS passenger,
+       pax.Email                                     AS email,
+       coalesce(pax.Phone, 'not provided')           AS phone,
+       t.Ticket_id                                   AS ticket,
+       fs.Flight_number + ' ' + toString(fi.Flight_date) AS original_flight,
+       orig.Airport_id + ' -> ' + dest.Airport_id    AS sector,
+       fi.Flight_status                              AS disruption,
+       CASE WHEN size(options) = 0
+            THEN ['No direct alternative - escalate to interline / hotel']
+            ELSE [o IN options | o.flight + ' on ' + toString(o.date) + ' at ' +
+                  toString(o.departs) + ' (' + toString(o.seats_free) + ' seats free)']
+       END                                           AS rebooking_options
+ORDER BY disruption, passenger;
+
+// EXPECTED RESULT (2 rows)
+// passenger      | email                      | phone      | ticket | original_flight  | sector     | disruption | rebooking_options
+// Olivia Bennett | olivia.bennett@example.com | 0420000001 | T008   | QF409 2026-09-12 | SYD -> MEL | Cancelled  | ["QF419 on 2026-09-12 at 18:00:00 (174 seats free)"]
+// Ethan Wilson   | ethan.wilson@example.com   | 0420000004 | T004   | QF521 2026-09-11 | SYD -> BNE | Delayed    | ["No direct alternative - escalate to interline / hotel"]
+// Insight: Olivia can be moved to the same-day evening SYD->MEL service.
+// No other SYD->BNE service is scheduled, so Ethan's case is escalated.
+// FI001 (also SYD->MEL) is NOT offered because it has already landed.

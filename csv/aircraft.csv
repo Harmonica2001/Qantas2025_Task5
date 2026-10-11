@@ -1,0 +1,6 @@
+Aircraft_id,Aircraft_type,Fleet_type,Capacity,Status,Home_airport_id
+AC001,Boeing 737-800,Narrowbody,174,Active,SYD
+AC002,Airbus A330-200,Widebody,297,Active,MEL
+AC003,Boeing 787-9,Widebody,236,Active,PER
+AC004,Boeing 737-800,Narrowbody,174,In Maintenance,BNE
+AC005,Airbus A320,Narrowbody,180,Active,SYD

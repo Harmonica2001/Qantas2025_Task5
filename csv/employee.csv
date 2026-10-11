@@ -1,0 +1,10 @@
+Employee_id,First_name,Last_name,Email,Phone,Employee_type,Qualification,Home_airport_id
+E001,James,Whitfield,james.whitfield@qantas.example,0410000001,Pilot,ATPL,SYD
+E002,Priya,Nair,priya.nair@qantas.example,0410000002,Pilot,ATPL,MEL
+E003,Liam,O'Connor,liam.oconnor@qantas.example,0410000003,Pilot,CPL,PER
+E004,Sophie,Tran,sophie.tran@qantas.example,0410000004,Cabin Crew,CASA Cabin Crew Cert,SYD
+E005,Ahmed,Farouk,ahmed.farouk@qantas.example,0410000005,Cabin Crew,CASA Cabin Crew Cert,MEL
+E006,Grace,Lam,grace.lam@qantas.example,0410000006,Cabin Crew,CASA Cabin Crew Cert,SYD
+E007,Marcus,Ivanov,marcus.ivanov@qantas.example,0410000007,Maintenance Crew,AME License,BNE
+E008,Chloe,Baker,chloe.baker@qantas.example,0410000008,Maintenance Crew,AME License,SYD
+E009,Daniel,Reyes,daniel.reyes@qantas.example,0410000009,Ground Staff,Ops Certificate,SYD

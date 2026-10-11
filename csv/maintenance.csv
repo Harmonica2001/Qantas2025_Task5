@@ -1,0 +1,5 @@
+Maintenance_id,Aircraft_id,Employee_id,Maintenance_type,Scheduled_date,Progression_status,Completion_date
+M001,AC004,E007,A-Check,2026-09-08,Completed,2026-09-09
+M002,AC004,E008,Engine Inspection,2026-09-12,In Progress,
+M003,AC001,E007,Routine Check,2026-08-20,Completed,2026-08-20
+M004,AC003,E008,B-Check,2026-10-01,Scheduled,

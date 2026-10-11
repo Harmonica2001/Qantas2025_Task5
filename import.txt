@@ -1,0 +1,350 @@
+// ============================================================================
+// QANTAS FLIGHT SCHEDULING - RELATIONAL (SQLite) TO NEO4J MIGRATION
+// Step 2: Graph database implementation
+// ----------------------------------------------------------------------------
+// Prerequisites
+//   1. Copy the 15 CSV files into the database's "import" folder
+//      (Neo4j Desktop: ... > Open folder > Import).
+//   2. Run each statement in order in Neo4j Browser (or run the whole file
+//      in Neo4j Desktop / cypher-shell). Neo4j 5.x syntax.
+//
+// Mapping rules applied
+//   * Each entity table            -> node label (one node per row)
+//   * Each foreign key             -> relationship (the FK column is NOT
+//                                     copied as a property, because the
+//                                     relationship now holds that link)
+//   * Bridge table Flight_crew     -> CREWS relationship with properties
+//                                     (Flight_crew_id, Crew_role)
+//   * Employee subclasses          -> separate Pilot / Cabin_crew /
+//                                     Maintenance_crew nodes joined by IS_A
+//   * CSV values are text, so numbers, dates and times are converted with
+//     toInteger(), date() and localtime().
+// ============================================================================
+
+
+// ============================================================================
+// PART A - CLEAN START (optional: removes everything in the database)
+// ============================================================================
+MATCH (n) DETACH DELETE n;
+
+
+// ============================================================================
+// PART B - CONSTRAINTS (run BEFORE loading data)
+// A uniqueness constraint enforces the relational PRIMARY KEY / UNIQUE rule
+// and automatically creates a RANGE index on that property, so every
+// MATCH/MERGE on an ID below is an index lookup rather than a label scan.
+// ============================================================================
+CREATE CONSTRAINT airport_city_pk     IF NOT EXISTS FOR (n:Airport_city)     REQUIRE n.City IS UNIQUE;
+CREATE CONSTRAINT airport_pk          IF NOT EXISTS FOR (n:Airport)          REQUIRE n.Airport_id IS UNIQUE;
+CREATE CONSTRAINT route_pk            IF NOT EXISTS FOR (n:Route)            REQUIRE n.Route_id IS UNIQUE;
+CREATE CONSTRAINT aircraft_pk         IF NOT EXISTS FOR (n:Aircraft)         REQUIRE n.Aircraft_id IS UNIQUE;
+CREATE CONSTRAINT employee_pk         IF NOT EXISTS FOR (n:Employee)         REQUIRE n.Employee_id IS UNIQUE;
+CREATE CONSTRAINT employee_email_uq   IF NOT EXISTS FOR (n:Employee)         REQUIRE n.Email IS UNIQUE;
+CREATE CONSTRAINT pilot_pk            IF NOT EXISTS FOR (n:Pilot)            REQUIRE n.Employee_id IS UNIQUE;
+CREATE CONSTRAINT pilot_licence_uq    IF NOT EXISTS FOR (n:Pilot)            REQUIRE n.License_number IS UNIQUE;
+CREATE CONSTRAINT cabin_crew_pk       IF NOT EXISTS FOR (n:Cabin_crew)       REQUIRE n.Employee_id IS UNIQUE;
+CREATE CONSTRAINT maint_crew_pk       IF NOT EXISTS FOR (n:Maintenance_crew) REQUIRE n.Employee_id IS UNIQUE;
+CREATE CONSTRAINT schedule_pk         IF NOT EXISTS FOR (n:Flight_schedule)  REQUIRE n.Schedule_id IS UNIQUE;
+CREATE CONSTRAINT flight_number_uq    IF NOT EXISTS FOR (n:Flight_schedule)  REQUIRE n.Flight_number IS UNIQUE;
+CREATE CONSTRAINT flight_instance_pk  IF NOT EXISTS FOR (n:Flight_instance)  REQUIRE n.Flight_instance_id IS UNIQUE;
+CREATE CONSTRAINT maintenance_pk      IF NOT EXISTS FOR (n:Maintenance)      REQUIRE n.Maintenance_id IS UNIQUE;
+CREATE CONSTRAINT passenger_pk        IF NOT EXISTS FOR (n:Passenger)        REQUIRE n.Passenger_id IS UNIQUE;
+CREATE CONSTRAINT passenger_email_uq  IF NOT EXISTS FOR (n:Passenger)        REQUIRE n.Email IS UNIQUE;
+CREATE CONSTRAINT booking_pk          IF NOT EXISTS FOR (n:Booking)          REQUIRE n.Booking_id IS UNIQUE;
+CREATE CONSTRAINT ticket_pk           IF NOT EXISTS FOR (n:Ticket)           REQUIRE n.Ticket_id IS UNIQUE;
+
+
+// ============================================================================
+// PART C - IMPORT NODES
+// MERGE (rather than CREATE) makes each script safe to re-run without
+// creating duplicate nodes.
+// ============================================================================
+
+// C1. Airport_city
+LOAD CSV WITH HEADERS FROM 'file:///airport_city.csv' AS row
+MERGE (c:Airport_city {City: row.City})
+SET c.Country = row.Country;
+
+// C2. Airport
+LOAD CSV WITH HEADERS FROM 'file:///airport.csv' AS row
+MERGE (a:Airport {Airport_id: row.Airport_id})
+SET a.Airport_name = row.Airport_name;
+
+// C3. Route
+LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+MERGE (r:Route {Route_id: row.Route_id})
+SET r.Estimated_time_of_arrival = toInteger(row.Estimated_time_of_arrival);   // minutes
+
+// C4. Aircraft
+LOAD CSV WITH HEADERS FROM 'file:///aircraft.csv' AS row
+MERGE (ac:Aircraft {Aircraft_id: row.Aircraft_id})
+SET ac.Aircraft_type = row.Aircraft_type,
+    ac.Fleet_type    = row.Fleet_type,
+    ac.Capacity      = toInteger(row.Capacity),
+    ac.Status        = row.Status;
+
+// C5. Employee (superclass)
+LOAD CSV WITH HEADERS FROM 'file:///employee.csv' AS row
+MERGE (e:Employee {Employee_id: row.Employee_id})
+SET e.First_name    = row.First_name,
+    e.Last_name     = row.Last_name,
+    e.Email         = row.Email,
+    e.Phone         = row.Phone,
+    e.Employee_type = row.Employee_type,
+    e.Qualification = row.Qualification;
+
+// C6. Pilot (subclass)
+LOAD CSV WITH HEADERS FROM 'file:///pilot.csv' AS row
+MERGE (p:Pilot {Employee_id: row.Employee_id})
+SET p.License_number       = row.License_number,
+    p.Years_experience     = toInteger(row.Years_experience),
+    p.Fleet_type_certified = row.Fleet_type_certified;
+
+// C7. Cabin_crew (subclass)
+LOAD CSV WITH HEADERS FROM 'file:///cabin_crew.csv' AS row
+MERGE (cc:Cabin_crew {Employee_id: row.Employee_id})
+SET cc.Position           = row.Position,
+    cc.Years_experience   = toInteger(row.Years_experience),
+    cc.Cabin_crew_license = row.Cabin_crew_license;
+
+// C8. Maintenance_crew (subclass)
+LOAD CSV WITH HEADERS FROM 'file:///maintenance_crew.csv' AS row
+MERGE (mc:Maintenance_crew {Employee_id: row.Employee_id})
+SET mc.Clearance_level  = row.Clearance_level,
+    mc.Specialization   = row.Specialization,
+    mc.Years_experience = toInteger(row.Years_experience);
+
+// C9. Flight_schedule
+LOAD CSV WITH HEADERS FROM 'file:///flight_schedule.csv' AS row
+MERGE (fs:Flight_schedule {Schedule_id: row.Schedule_id})
+SET fs.Flight_number       = row.Flight_number,
+    fs.Flight_type         = row.Flight_type,
+    fs.Scheduled_departure = localtime(row.Scheduled_departure),
+    fs.Scheduled_arrival   = localtime(row.Scheduled_arrival);
+
+// C10. Flight_instance  (empty CSV fields load as null, so localtime(null) = null)
+LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+MERGE (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
+SET fi.Flight_date      = date(row.Flight_date),
+    fi.Actual_departure = localtime(row.Actual_departure),
+    fi.Actual_arrival   = localtime(row.Actual_arrival),
+    fi.Flight_status    = row.Flight_status;
+
+// C11. Maintenance
+LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+MERGE (m:Maintenance {Maintenance_id: row.Maintenance_id})
+SET m.Maintenance_type   = row.Maintenance_type,
+    m.Scheduled_date     = date(row.Scheduled_date),
+    m.Progression_status = row.Progression_status,
+    m.Completion_date    = date(row.Completion_date);
+
+// C12. Passenger
+LOAD CSV WITH HEADERS FROM 'file:///passenger.csv' AS row
+MERGE (p:Passenger {Passenger_id: row.Passenger_id})
+SET p.First_name = row.First_name,
+    p.Last_name  = row.Last_name,
+    p.Phone      = row.Phone,
+    p.Email      = row.Email;
+
+// C13. Booking
+LOAD CSV WITH HEADERS FROM 'file:///booking.csv' AS row
+MERGE (b:Booking {Booking_id: row.Booking_id})
+SET b.Booking_date   = date(row.Booking_date),
+    b.Payment_status = row.Payment_status;
+
+// C14. Ticket
+LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+MERGE (t:Ticket {Ticket_id: row.Ticket_id})
+SET t.Seat_number = row.Seat_number,
+    t.Class_type  = row.Class_type,
+    t.Ticket_fee  = toInteger(row.Ticket_fee);
+
+
+// ============================================================================
+// PART D - IMPORT RELATIONSHIPS (one block per foreign key)
+// Each block re-reads the CSV that holds the FK, MATCHes both end nodes
+// through their unique-constraint index, and MERGEs the relationship.
+// ============================================================================
+
+// D1. (Airport)-[:LOCATED_IN]->(Airport_city)        FK Airport.City
+LOAD CSV WITH HEADERS FROM 'file:///airport.csv' AS row
+MATCH (a:Airport {Airport_id: row.Airport_id})
+MATCH (c:Airport_city {City: row.City})
+MERGE (a)-[:LOCATED_IN]->(c);
+
+// D2. (Route)-[:DEPARTS_FROM]->(Airport)              FK Route.Origin_airport_id
+LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+MATCH (r:Route {Route_id: row.Route_id})
+MATCH (a:Airport {Airport_id: row.Origin_airport_id})
+MERGE (r)-[:DEPARTS_FROM]->(a);
+
+// D3. (Route)-[:ARRIVES_AT]->(Airport)                FK Route.Destination_airport_id
+LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+MATCH (r:Route {Route_id: row.Route_id})
+MATCH (a:Airport {Airport_id: row.Destination_airport_id})
+MERGE (r)-[:ARRIVES_AT]->(a);
+
+// D4. (Aircraft)-[:HOSTED_AT]->(Airport)              FK Aircraft.Home_airport_id
+LOAD CSV WITH HEADERS FROM 'file:///aircraft.csv' AS row
+WITH row WHERE row.Home_airport_id IS NOT NULL
+MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
+MATCH (a:Airport {Airport_id: row.Home_airport_id})
+MERGE (ac)-[:HOSTED_AT]->(a);
+
+// D5. (Employee)-[:WORKS_FOR]->(Airport)              FK Employee.Home_airport_id
+LOAD CSV WITH HEADERS FROM 'file:///employee.csv' AS row
+WITH row WHERE row.Home_airport_id IS NOT NULL
+MATCH (e:Employee {Employee_id: row.Employee_id})
+MATCH (a:Airport {Airport_id: row.Home_airport_id})
+MERGE (e)-[:WORKS_FOR]->(a);
+
+// D6. Specialisation: (Employee)-[:IS_A]->(Pilot | Cabin_crew | Maintenance_crew)
+//     PK/FK Employee_id is shared, so join each subclass node to its
+//     superclass node on Employee_id. (Ground Staff has no subclass node:
+//     the specialisation is partial.)
+MATCH (s:Pilot)
+MATCH (e:Employee {Employee_id: s.Employee_id})
+MERGE (e)-[:IS_A]->(s);
+
+MATCH (s:Cabin_crew)
+MATCH (e:Employee {Employee_id: s.Employee_id})
+MERGE (e)-[:IS_A]->(s);
+
+MATCH (s:Maintenance_crew)
+MATCH (e:Employee {Employee_id: s.Employee_id})
+MERGE (e)-[:IS_A]->(s);
+
+// D7. (Flight_schedule)-[:FOLLOWS]->(Route)           FK Flight_schedule.Route_id
+LOAD CSV WITH HEADERS FROM 'file:///flight_schedule.csv' AS row
+MATCH (fs:Flight_schedule {Schedule_id: row.Schedule_id})
+MATCH (r:Route {Route_id: row.Route_id})
+MERGE (fs)-[:FOLLOWS]->(r);
+
+// D8. (Flight_instance)-[:ACTUALISATION_OF]->(Flight_schedule)   FK Flight_Instance.Schedule_id
+LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
+MATCH (fs:Flight_schedule {Schedule_id: row.Schedule_id})
+MERGE (fi)-[:ACTUALISATION_OF]->(fs);
+
+// D9. (Flight_instance)-[:USES]->(Aircraft)           FK Flight_Instance.Aircraft_id
+LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
+MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
+MERGE (fi)-[:USES]->(ac);
+
+// D10. (Employee)-[:CREWS {Flight_crew_id, Crew_role}]->(Flight_instance)
+//      The Flight_crew bridge table has no meaning of its own beyond linking
+//      Employee and Flight_Instance, so it becomes a relationship that carries
+//      the bridge table's attributes as properties.
+LOAD CSV WITH HEADERS FROM 'file:///flight_crew.csv' AS row
+MATCH (e:Employee {Employee_id: row.Employee_id})
+MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
+MERGE (e)-[c:CREWS {Flight_crew_id: row.Flight_crew_id}]->(fi)
+SET c.Crew_role = row.Crew_role;
+
+// D11. (Aircraft)-[:UNDERGOES]->(Maintenance)         FK Maintenance.Aircraft_id
+LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+MATCH (m:Maintenance {Maintenance_id: row.Maintenance_id})
+MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
+MERGE (ac)-[:UNDERGOES]->(m);
+
+// D12. (Employee)-[:CONDUCTS]->(Maintenance)          FK Maintenance.Employee_id
+LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+MATCH (m:Maintenance {Maintenance_id: row.Maintenance_id})
+MATCH (e:Employee {Employee_id: row.Employee_id})
+MERGE (e)-[:CONDUCTS]->(m);
+
+// D13. (Passenger)-[:MADE]->(Booking)                 FK Booking.Passenger_id
+LOAD CSV WITH HEADERS FROM 'file:///booking.csv' AS row
+MATCH (b:Booking {Booking_id: row.Booking_id})
+MATCH (p:Passenger {Passenger_id: row.Passenger_id})
+MERGE (p)-[:MADE]->(b);
+
+// D14. (Booking)-[:INCLUDES]->(Ticket)                FK Ticket.Booking_id
+LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+MATCH (t:Ticket {Ticket_id: row.Ticket_id})
+MATCH (b:Booking {Booking_id: row.Booking_id})
+MERGE (b)-[:INCLUDES]->(t);
+
+// D15. (Ticket)-[:ISSUED_FOR]->(Flight_instance)      FK Ticket.Flight_instance_id
+LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+MATCH (t:Ticket {Ticket_id: row.Ticket_id})
+MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
+MERGE (t)-[:ISSUED_FOR]->(fi);
+
+
+// ============================================================================
+// PART E - ADDITIONAL INDEXES
+// The constraints in Part B already index every primary key. These extra
+// indexes support the non-key properties used in WHERE filters by the
+// Step 3 queries and by common operational lookups.
+// ============================================================================
+
+// E1. Single-property RANGE indexes on frequently filtered attributes
+CREATE INDEX flight_instance_status IF NOT EXISTS FOR (n:Flight_instance) ON (n.Flight_status);
+CREATE INDEX flight_instance_date   IF NOT EXISTS FOR (n:Flight_instance) ON (n.Flight_date);
+CREATE INDEX aircraft_status        IF NOT EXISTS FOR (n:Aircraft)        ON (n.Status);
+CREATE INDEX booking_payment_status IF NOT EXISTS FOR (n:Booking)         ON (n.Payment_status);
+CREATE INDEX employee_type          IF NOT EXISTS FOR (n:Employee)        ON (n.Employee_type);
+CREATE INDEX maintenance_status     IF NOT EXISTS FOR (n:Maintenance)     ON (n.Progression_status);
+
+// E2. Composite index: "which flights on <date> have <status>?" (ops dashboard)
+CREATE INDEX flight_instance_date_status IF NOT EXISTS
+FOR (n:Flight_instance) ON (n.Flight_date, n.Flight_status);
+
+// E3. Relationship property index: find all captains / cabin crew rostered
+CREATE INDEX crews_role IF NOT EXISTS FOR ()-[c:CREWS]-() ON (c.Crew_role);
+
+// E4. Full-text index: call-centre passenger search by partial name/email
+CREATE FULLTEXT INDEX passenger_search IF NOT EXISTS
+FOR (n:Passenger) ON EACH [n.First_name, n.Last_name, n.Email];
+
+// Confirm the constraints and indexes exist (all should show state ONLINE)
+SHOW INDEXES YIELD name, type, labelsOrTypes, properties, state
+RETURN name, type, labelsOrTypes, properties, state ORDER BY name;
+
+
+// ============================================================================
+// PART F - MIGRATION VALIDATION
+// Node and relationship counts must equal the relational row counts.
+// ============================================================================
+
+// F1. Nodes per label. Expected: Airport_city 6, Airport 6, Route 7,
+//     Aircraft 5, Employee 9, Pilot 3, Cabin_crew 3, Maintenance_crew 2,
+//     Flight_schedule 6, Flight_instance 7, Maintenance 4, Passenger 6,
+//     Booking 7, Ticket 8   (total 79)
+MATCH (n)
+RETURN labels(n)[0] AS label, count(*) AS nodes
+ORDER BY label;
+
+// F2. Relationships per type. Expected: LOCATED_IN 6, DEPARTS_FROM 7,
+//     ARRIVES_AT 7, HOSTED_AT 5, WORKS_FOR 9, IS_A 8, FOLLOWS 6,
+//     ACTUALISATION_OF 7, USES 7, CREWS 10, UNDERGOES 4, CONDUCTS 4,
+//     MADE 7, INCLUDES 8, ISSUED_FOR 8   (total 103)
+MATCH ()-[r]->()
+RETURN type(r) AS relationship, count(*) AS total
+ORDER BY relationship;
+
+// F3. Orphan check: every Ticket must reach a Passenger and a Flight
+//     (expected result: 0)
+MATCH (t:Ticket)
+WHERE NOT EXISTS { (:Passenger)-[:MADE]->(:Booking)-[:INCLUDES]->(t) }
+   OR NOT EXISTS { (t)-[:ISSUED_FOR]->(:Flight_instance) }
+RETURN count(t) AS orphan_tickets;
+
+
+// ============================================================================
+// SCALING NOTE (Big Data)
+// For millions of rows, wrap each LOAD CSV in batched transactions so the
+// load does not run out of memory (in Neo4j Browser prefix with :auto), e.g.
+//
+//   :auto LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+//   CALL (row) {
+//     MERGE (t:Ticket {Ticket_id: row.Ticket_id})
+//     SET t.Seat_number = row.Seat_number, t.Class_type = row.Class_type,
+//         t.Ticket_fee = toInteger(row.Ticket_fee)
+//   } IN TRANSACTIONS OF 10000 ROWS;
+//
+// For the very first bulk load of an empty database, neo4j-admin database
+// import is faster again, because it writes the store files directly.
+// ============================================================================

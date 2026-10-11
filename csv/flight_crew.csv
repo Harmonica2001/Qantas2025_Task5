@@ -1,0 +1,11 @@
+Flight_crew_id,Employee_id,Flight_instance_id,Crew_role
+FC001,E001,FI001,Captain
+FC002,E004,FI001,Cabin Crew
+FC003,E001,FI002,Captain
+FC004,E006,FI002,Cabin Crew
+FC005,E003,FI003,Captain
+FC006,E002,FI004,Captain
+FC007,E005,FI004,Cabin Crew
+FC008,E002,FI005,Captain
+FC009,E006,FI005,Cabin Crew
+FC010,E001,FI007,Captain

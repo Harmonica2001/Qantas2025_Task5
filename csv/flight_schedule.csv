@@ -1,0 +1,7 @@
+Schedule_id,Route_id,Flight_number,Flight_type,Scheduled_departure,Scheduled_arrival
+SCH001,RT001,QF409,Domestic,06:30,07:55
+SCH002,RT002,QF430,Domestic,09:00,10:25
+SCH003,RT003,QF521,Domestic,07:00,08:30
+SCH004,RT004,QF576,Domestic,11:15,15:15
+SCH005,RT006,QF001,International,23:00,07:00
+SCH006,RT001,QF419,Domestic,18:00,19:25

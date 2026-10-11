@@ -1,0 +1,8 @@
+Flight_instance_id,Schedule_id,Aircraft_id,Flight_date,Actual_departure,Actual_arrival,Flight_status
+FI001,SCH001,AC001,2026-09-10,06:32,07:58,Landed
+FI002,SCH002,AC001,2026-09-10,09:10,10:36,Landed
+FI003,SCH003,AC005,2026-09-11,07:05,,Delayed
+FI004,SCH004,AC003,2026-09-11,,,Scheduled
+FI005,SCH005,AC002,2026-09-12,,,Scheduled
+FI006,SCH001,AC001,2026-09-12,,,Cancelled
+FI007,SCH006,AC001,2026-09-12,,,Scheduled
