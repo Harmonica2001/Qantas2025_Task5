@@ -61,22 +61,22 @@ CREATE CONSTRAINT ticket_pk           IF NOT EXISTS FOR (n:Ticket)           REQ
 // ============================================================================
 
 // C1. Airport_city
-LOAD CSV WITH HEADERS FROM 'file:///airport_city.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/airport_city.csv' AS row
 MERGE (c:Airport_city {City: row.City})
 SET c.Country = row.Country;
 
 // C2. Airport
-LOAD CSV WITH HEADERS FROM 'file:///airport.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/airport.csv' AS row
 MERGE (a:Airport {Airport_id: row.Airport_id})
 SET a.Airport_name = row.Airport_name;
 
 // C3. Route
-LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/route.csv' AS row
 MERGE (r:Route {Route_id: row.Route_id})
 SET r.Estimated_time_of_arrival = toInteger(row.Estimated_time_of_arrival);   // minutes
 
 // C4. Aircraft
-LOAD CSV WITH HEADERS FROM 'file:///aircraft.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/aircraft.csv' AS row
 MERGE (ac:Aircraft {Aircraft_id: row.Aircraft_id})
 SET ac.Aircraft_type = row.Aircraft_type,
     ac.Fleet_type    = row.Fleet_type,
@@ -84,7 +84,7 @@ SET ac.Aircraft_type = row.Aircraft_type,
     ac.Status        = row.Status;
 
 // C5. Employee (superclass)
-LOAD CSV WITH HEADERS FROM 'file:///employee.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/employee.csv' AS row
 MERGE (e:Employee {Employee_id: row.Employee_id})
 SET e.First_name    = row.First_name,
     e.Last_name     = row.Last_name,
@@ -94,28 +94,28 @@ SET e.First_name    = row.First_name,
     e.Qualification = row.Qualification;
 
 // C6. Pilot (subclass)
-LOAD CSV WITH HEADERS FROM 'file:///pilot.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/pilot.csv' AS row
 MERGE (p:Pilot {Employee_id: row.Employee_id})
 SET p.License_number       = row.License_number,
     p.Years_experience     = toInteger(row.Years_experience),
     p.Fleet_type_certified = row.Fleet_type_certified;
 
 // C7. Cabin_crew (subclass)
-LOAD CSV WITH HEADERS FROM 'file:///cabin_crew.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/cabin_crew.csv' AS row
 MERGE (cc:Cabin_crew {Employee_id: row.Employee_id})
 SET cc.Position           = row.Position,
     cc.Years_experience   = toInteger(row.Years_experience),
     cc.Cabin_crew_license = row.Cabin_crew_license;
 
 // C8. Maintenance_crew (subclass)
-LOAD CSV WITH HEADERS FROM 'file:///maintenance_crew.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/maintenance_crew.csv' AS row
 MERGE (mc:Maintenance_crew {Employee_id: row.Employee_id})
 SET mc.Clearance_level  = row.Clearance_level,
     mc.Specialization   = row.Specialization,
     mc.Years_experience = toInteger(row.Years_experience);
 
 // C9. Flight_schedule
-LOAD CSV WITH HEADERS FROM 'file:///flight_schedule.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_schedule.csv' AS row
 MERGE (fs:Flight_schedule {Schedule_id: row.Schedule_id})
 SET fs.Flight_number       = row.Flight_number,
     fs.Flight_type         = row.Flight_type,
@@ -123,7 +123,7 @@ SET fs.Flight_number       = row.Flight_number,
     fs.Scheduled_arrival   = localtime(row.Scheduled_arrival);
 
 // C10. Flight_instance  (empty CSV fields load as null, so localtime(null) = null)
-LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_instance.csv' AS row
 MERGE (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
 SET fi.Flight_date      = date(row.Flight_date),
     fi.Actual_departure = localtime(row.Actual_departure),
@@ -131,7 +131,7 @@ SET fi.Flight_date      = date(row.Flight_date),
     fi.Flight_status    = row.Flight_status;
 
 // C11. Maintenance
-LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/maintenance.csv' AS row
 MERGE (m:Maintenance {Maintenance_id: row.Maintenance_id})
 SET m.Maintenance_type   = row.Maintenance_type,
     m.Scheduled_date     = date(row.Scheduled_date),
@@ -139,7 +139,7 @@ SET m.Maintenance_type   = row.Maintenance_type,
     m.Completion_date    = date(row.Completion_date);
 
 // C12. Passenger
-LOAD CSV WITH HEADERS FROM 'file:///passenger.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/passenger.csv' AS row
 MERGE (p:Passenger {Passenger_id: row.Passenger_id})
 SET p.First_name = row.First_name,
     p.Last_name  = row.Last_name,
@@ -147,13 +147,13 @@ SET p.First_name = row.First_name,
     p.Email      = row.Email;
 
 // C13. Booking
-LOAD CSV WITH HEADERS FROM 'file:///booking.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/booking.csv' AS row
 MERGE (b:Booking {Booking_id: row.Booking_id})
 SET b.Booking_date   = date(row.Booking_date),
     b.Payment_status = row.Payment_status;
 
 // C14. Ticket
-LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/ticket.csv' AS row
 MERGE (t:Ticket {Ticket_id: row.Ticket_id})
 SET t.Seat_number = row.Seat_number,
     t.Class_type  = row.Class_type,
@@ -167,32 +167,32 @@ SET t.Seat_number = row.Seat_number,
 // ============================================================================
 
 // D1. (Airport)-[:LOCATED_IN]->(Airport_city)        FK Airport.City
-LOAD CSV WITH HEADERS FROM 'file:///airport.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/airport.csv' AS row
 MATCH (a:Airport {Airport_id: row.Airport_id})
 MATCH (c:Airport_city {City: row.City})
 MERGE (a)-[:LOCATED_IN]->(c);
 
 // D2. (Route)-[:DEPARTS_FROM]->(Airport)              FK Route.Origin_airport_id
-LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/route.csv' AS row
 MATCH (r:Route {Route_id: row.Route_id})
 MATCH (a:Airport {Airport_id: row.Origin_airport_id})
 MERGE (r)-[:DEPARTS_FROM]->(a);
 
 // D3. (Route)-[:ARRIVES_AT]->(Airport)                FK Route.Destination_airport_id
-LOAD CSV WITH HEADERS FROM 'file:///route.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/route.csv' AS row
 MATCH (r:Route {Route_id: row.Route_id})
 MATCH (a:Airport {Airport_id: row.Destination_airport_id})
 MERGE (r)-[:ARRIVES_AT]->(a);
 
 // D4. (Aircraft)-[:HOSTED_AT]->(Airport)              FK Aircraft.Home_airport_id
-LOAD CSV WITH HEADERS FROM 'file:///aircraft.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/aircraft.csv' AS row
 WITH row WHERE row.Home_airport_id IS NOT NULL
 MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
 MATCH (a:Airport {Airport_id: row.Home_airport_id})
 MERGE (ac)-[:HOSTED_AT]->(a);
 
 // D5. (Employee)-[:WORKS_FOR]->(Airport)              FK Employee.Home_airport_id
-LOAD CSV WITH HEADERS FROM 'file:///employee.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/employee.csv' AS row
 WITH row WHERE row.Home_airport_id IS NOT NULL
 MATCH (e:Employee {Employee_id: row.Employee_id})
 MATCH (a:Airport {Airport_id: row.Home_airport_id})
@@ -215,19 +215,19 @@ MATCH (e:Employee {Employee_id: s.Employee_id})
 MERGE (e)-[:IS_A]->(s);
 
 // D7. (Flight_schedule)-[:FOLLOWS]->(Route)           FK Flight_schedule.Route_id
-LOAD CSV WITH HEADERS FROM 'file:///flight_schedule.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_schedule.csv' AS row
 MATCH (fs:Flight_schedule {Schedule_id: row.Schedule_id})
 MATCH (r:Route {Route_id: row.Route_id})
 MERGE (fs)-[:FOLLOWS]->(r);
 
 // D8. (Flight_instance)-[:ACTUALISATION_OF]->(Flight_schedule)   FK Flight_Instance.Schedule_id
-LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_instance.csv' AS row
 MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
 MATCH (fs:Flight_schedule {Schedule_id: row.Schedule_id})
 MERGE (fi)-[:ACTUALISATION_OF]->(fs);
 
 // D9. (Flight_instance)-[:USES]->(Aircraft)           FK Flight_Instance.Aircraft_id
-LOAD CSV WITH HEADERS FROM 'file:///flight_instance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_instance.csv' AS row
 MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
 MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
 MERGE (fi)-[:USES]->(ac);
@@ -236,38 +236,38 @@ MERGE (fi)-[:USES]->(ac);
 //      The Flight_crew bridge table has no meaning of its own beyond linking
 //      Employee and Flight_Instance, so it becomes a relationship that carries
 //      the bridge table's attributes as properties.
-LOAD CSV WITH HEADERS FROM 'file:///flight_crew.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/flight_crew.csv' AS row
 MATCH (e:Employee {Employee_id: row.Employee_id})
 MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
 MERGE (e)-[c:CREWS {Flight_crew_id: row.Flight_crew_id}]->(fi)
 SET c.Crew_role = row.Crew_role;
 
 // D11. (Aircraft)-[:UNDERGOES]->(Maintenance)         FK Maintenance.Aircraft_id
-LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/maintenance.csv' AS row
 MATCH (m:Maintenance {Maintenance_id: row.Maintenance_id})
 MATCH (ac:Aircraft {Aircraft_id: row.Aircraft_id})
 MERGE (ac)-[:UNDERGOES]->(m);
 
 // D12. (Employee)-[:CONDUCTS]->(Maintenance)          FK Maintenance.Employee_id
-LOAD CSV WITH HEADERS FROM 'file:///maintenance.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/maintenance.csv' AS row
 MATCH (m:Maintenance {Maintenance_id: row.Maintenance_id})
 MATCH (e:Employee {Employee_id: row.Employee_id})
 MERGE (e)-[:CONDUCTS]->(m);
 
 // D13. (Passenger)-[:MADE]->(Booking)                 FK Booking.Passenger_id
-LOAD CSV WITH HEADERS FROM 'file:///booking.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/booking.csv' AS row
 MATCH (b:Booking {Booking_id: row.Booking_id})
 MATCH (p:Passenger {Passenger_id: row.Passenger_id})
 MERGE (p)-[:MADE]->(b);
 
 // D14. (Booking)-[:INCLUDES]->(Ticket)                FK Ticket.Booking_id
-LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/ticket.csv' AS row
 MATCH (t:Ticket {Ticket_id: row.Ticket_id})
 MATCH (b:Booking {Booking_id: row.Booking_id})
 MERGE (b)-[:INCLUDES]->(t);
 
 // D15. (Ticket)-[:ISSUED_FOR]->(Flight_instance)      FK Ticket.Flight_instance_id
-LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/ticket.csv' AS row
 MATCH (t:Ticket {Ticket_id: row.Ticket_id})
 MATCH (fi:Flight_instance {Flight_instance_id: row.Flight_instance_id})
 MERGE (t)-[:ISSUED_FOR]->(fi);
@@ -338,7 +338,7 @@ RETURN count(t) AS orphan_tickets;
 // For millions of rows, wrap each LOAD CSV in batched transactions so the
 // load does not run out of memory (in Neo4j Browser prefix with :auto), e.g.
 //
-//   :auto LOAD CSV WITH HEADERS FROM 'file:///ticket.csv' AS row
+//   :auto LOAD CSV WITH HEADERS FROM 'https://github.com/Harmonica2001/Qantas2025_Task5/tree/main/ticket.csv' AS row
 //   CALL (row) {
 //     MERGE (t:Ticket {Ticket_id: row.Ticket_id})
 //     SET t.Seat_number = row.Seat_number, t.Class_type = row.Class_type,
